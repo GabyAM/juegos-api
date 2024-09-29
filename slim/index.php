@@ -109,5 +109,6 @@ $authenticate = function ($admin = false) {
 };
 
 require __DIR__ . '/endpoints/auth.php';
+require __DIR__ . '/endpoints/user.php';
 
 $app->run();
