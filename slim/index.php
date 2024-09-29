@@ -9,6 +9,8 @@ require_once __DIR__ . '/utilities/sql_strings.php';
 require_once __DIR__ . '/validation/user.php';
 require_once __DIR__ . '/validation/score.php';
 require_once __DIR__ . '/validation/game.php';
+require_once __DIR__ . '/validation/support.php';
+
 class CustomException extends Exception
 {
 }
@@ -114,5 +116,6 @@ require __DIR__ . '/endpoints/auth.php';
 require __DIR__ . '/endpoints/user.php';
 require __DIR__ . '/endpoints/game.php';
 require __DIR__ . '/endpoints/score.php';
+require __DIR__ . '/endpoints/support.php';
 
 $app->run();
