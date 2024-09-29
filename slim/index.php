@@ -74,4 +74,36 @@ function findOne($table, $conditions, $select = "*")
     return $value;
 }
 
+$authenticate = function ($admin = false) {
+    return function (Request $req, $handler) use ($admin) {
+        $header = $req->getHeader("Authorization");
+        if (empty($header)) {
+            throw new CustomException("Autenticación fallida", 401);
+        }
+
+        if (!preg_match("/^Bearer [0-9]+::[0-9A-Fa-f]+$/", $header[0])) {
+            throw new CustomException("El formato del token es incorrecto", 401);
+        }
+
+        $token = explode(' ', $header[0])[1];
+        $userId = explode("::", $token)[0];
+
+        $user = findOne("usuario", "id =  $userId");
+        if ($admin && !$user["es_admin"]) {
+            throw new CustomException("El usuario debe ser admin", 401);
+        }
+
+        if ($token !== $user["token"]) {
+            throw new CustomException("El token no es válido", 401);
+        }
+        if (strtotime($user["vencimiento_token"]) < time()) {
+            throw new CustomException("El token expiró", 401);
+        }
+
+        $req = $req->withAttribute("userId", $user["id"]);
+        $res = $handler->handle($req);
+        return $res;
+    };
+};
+
 $app->run();
