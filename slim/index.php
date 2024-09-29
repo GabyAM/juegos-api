@@ -5,6 +5,8 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
 
 require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/utilities/sql_strings.php';
+require_once __DIR__ . '/validation/user.php';
 class CustomException extends Exception
 {
 }
@@ -105,5 +107,7 @@ $authenticate = function ($admin = false) {
         return $res;
     };
 };
+
+require __DIR__ . '/endpoints/auth.php';
 
 $app->run();
