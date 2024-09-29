@@ -7,6 +7,7 @@ use Slim\Factory\AppFactory;
 require __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/utilities/sql_strings.php';
 require_once __DIR__ . '/validation/user.php';
+require_once __DIR__ . '/validation/game.php';
 class CustomException extends Exception
 {
 }
@@ -110,5 +111,6 @@ $authenticate = function ($admin = false) {
 
 require __DIR__ . '/endpoints/auth.php';
 require __DIR__ . '/endpoints/user.php';
+require __DIR__ . '/endpoints/game.php';
 
 $app->run();
