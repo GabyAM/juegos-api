@@ -42,4 +42,36 @@ $app->add(function ($request, $handler) {
     ;
 });
 
+function createConnection()
+{
+    $dsn = 'mysql:host=db;dbname=seminariophp';
+    $username = 'seminariophp';
+    $password = 'seminariophp';
+
+    return new PDO($dsn, $username, $password);
+}
+;
+
+function findOne($table, $conditions, $select = "*")
+{
+    $pdo = createConnection();
+
+    if (is_array($conditions)) {
+        $conditionsString = implode(" AND ", $conditions);
+    } else
+        $conditionsString = $conditions;
+
+    $sql = "SELECT " . $select . " FROM " . $table . " WHERE " . $conditionsString;
+    $query = $pdo->query($sql);
+    $value = null;
+    if ($query->rowCount() === 1) {
+        $value = $query->fetch(PDO::FETCH_ASSOC);
+    } else if ($query->rowCount() > 1) {
+        throw new CustomException("Se encontraron multiples resultados para una busqueda única", 500);
+    }
+
+    unset($pdo);
+    return $value;
+}
+
 $app->run();
