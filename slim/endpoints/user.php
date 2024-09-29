@@ -18,6 +18,40 @@ $app->get("/usuario/{id:[0-9]+}", function (Request $req, Response $res, array $
 })->add($authenticate());
 
 
+// Es una copia exacta de /register, no entendí cual es la diferencia, lo añado por las dudas.
+$app->post('/usuario', function (Request $req, Response $res) {
+    $data = array_intersect_key(
+        $req->getParsedBody() ?? [],
+        array_flip(['nombre_usuario', 'clave'])
+    );
+
+    $errors = validateUser($data);
+
+    if (!empty($errors)) {
+        $res
+            ->getBody()
+            ->write(json_encode(['status' => 400, 'errors' => $errors]));
+        return $res->withStatus(400);
+    }
+
+    $userName = $data["nombre_usuario"];
+    $user = findOne("usuario", "nombre_usuario = '$userName'");
+    if (isset($user)) {
+        throw new CustomException("El nombre de usuario está en uso", 409);
+    }
+
+    $insertString = buildInsertString($data);
+    $sql = "INSERT INTO usuario " . $insertString;
+    $pdo = createConnection();
+    $pdo->query($sql);
+
+    $res->getBody()->write(json_encode([
+        "status" => 200,
+        "message" => "Usuario creado exitosamente"
+    ]));
+    return $res;
+});
+
 $app->put("/usuario/{id:[0-9]+}", function (Request $req, Response $res, array $args) {
     $data = array_intersect_key(
         $req->getParsedBody() ?? [],
