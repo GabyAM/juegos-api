@@ -30,7 +30,7 @@ $app->get("/juegos", function (Request $req, Response $res) {
     if (isset($params["clasificacion"])) {
         array_push($conditions, "juego.clasificacion_edad = '" . $params["clasificacion"] . "'");
     }
-    $sql = "SELECT juego.nombre, juego.descripcion, juego.imagen, juego.clasificacion_edad, 
+    $sql = "SELECT juego.id, juego.nombre, juego.descripcion, juego.imagen, juego.clasificacion_edad, 
     (SELECT AVG(estrellas) FROM calificacion WHERE juego_id = juego.id) as promedio_calificaciones, 
     GROUP_CONCAT(plataforma.nombre ORDER BY plataforma.nombre ASC SEPARATOR ', ') as plataformas 
     FROM juego LEFT JOIN soporte ON soporte.juego_id = juego.id LEFT JOIN plataforma on soporte.plataforma_id = plataforma.id
