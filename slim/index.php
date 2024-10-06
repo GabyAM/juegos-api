@@ -21,7 +21,7 @@ $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 $customErrorHandler = function (Request $request, Throwable $exception) use ($app) {
     $exceptionCode = $exception->getCode();
-    if ($exception instanceof CustomException) {
+    if ($exception instanceof CustomException || $exception instanceof HttpException) {
         $responseCode = $exceptionCode;
     } else {
         $responseCode = 500;

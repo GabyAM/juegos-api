@@ -39,6 +39,7 @@ $app->post('/login', function (Request $req, Response $res) {
 
     $res->getBody()->write(json_encode(
         [
+            "status" => 200,
             "message" => "Login realizado exitosamente",
             "token" => $token
         ]
