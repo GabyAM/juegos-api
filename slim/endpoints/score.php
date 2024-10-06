@@ -23,8 +23,14 @@ $app->post("/calificacion", function (Request $req, Response $res) {
         throw new CustomException("No se encontró el juego referenciado", 404);
     }
 
+    $userId = $req->getAttribute("userId");
+    $score = findOne("calificacion", ["usuario_id = $userId", "juego_id = $gameId"]);
+    if (isset($score)) {
+        throw new CustomException("El usuario ya tiene una calificación para ese juego", 409);
+    }
+
     $pdo = createConnection();
-    $insertString = buildInsertString([...$data, "usuario_id" => $req->getAttribute("userId")]);
+    $insertString = buildInsertString([...$data, "usuario_id" => $userId]);
     $sql = "INSERT INTO calificacion " . $insertString;
     $pdo->query($sql);
 

@@ -28,6 +28,11 @@ $app->post("/soporte", function (Request $req, Response $res) {
         throw new CustomException("No se encontró la plataforma referenciada", 404);
     }
 
+    $support = findOne("soporte", ["juego_id = $gameId", "platform_id = $platformId"]);
+    if (isset($support)) {
+        throw new CustomException("Ya existe el soporte para el juego en esa plataforma", 409);
+    }
+
     $pdo = createConnection();
     $insertString = buildInsertString($data);
     $sql = "INSERT INTO soporte " . $insertString;

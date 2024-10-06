@@ -93,6 +93,12 @@ $app->post("/juego", function (Request $req, Response $res) {
         return $res->withStatus(400);
     }
 
+    $newName = $data["nombre"];
+    $game = findOne("juego", "nombre = '$newName'");
+    if (isset($game)) {
+        throw new CustomException('Ya existe un juego con ese nombre', 409);
+    }
+
     $data["imagen"] = base64_encode($data["imagen"]->getStream()->getContents());
 
     $pdo = createConnection();
@@ -132,6 +138,14 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
     $game = findOne("juego", "id = $id");
     if (!isset($game)) {
         throw new CustomException("Juego no encontrado", 404);
+    }
+
+    if (isset($data["nombre"])) {
+        $newName = $data["nombre"];
+        $game = findOne("juego", ["nombre = '$newName'", "id != $id"]);
+        if (isset($game)) {
+            throw new CustomException('Ya existe un juego con ese nombre', 409);
+        }
     }
 
     if (isset($data["imagen"])) {

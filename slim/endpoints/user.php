@@ -73,6 +73,14 @@ $app->put("/usuario/{id:[0-9]+}", function (Request $req, Response $res, array $
         return $res->withStatus(400);
     }
 
+    if (isset($data["nombre_usuario"])) {
+        $userName = $data["nombre_usuario"];
+        $user = findOne("usuario", "nombre_usuario = '$userName'");
+        if (isset($user)) {
+            throw new CustomException("El nombre de usuario está en uso", 409);
+        }
+    }
+
     $updatesString = buildUpdateString($data);
     $sql = 'UPDATE usuario SET ' . $updatesString . " WHERE id = $id";
     $pdo = createConnection();
