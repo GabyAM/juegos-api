@@ -3,6 +3,23 @@
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
 
+$app->get('/calificacion/{juegoid:[0-9]+}', function (Request $req, Response $res, array $args) {
+    $gameId = $args["juegoid"];
+    $userId = $req->getAttribute("userId");
+
+    $score = findOne("calificacion", ["juego_id = $gameId", "usuario_id = $userId"]);
+    if (!isset($score)) {
+        throw new CustomException("No se encontró la calificacion", 404);
+    }
+
+    $res->getBody()->write(json_encode([
+        "status" => 200,
+        "data" => $score
+    ]));
+
+    return $res;
+})->add($authenticate());
+
 $app->post("/calificacion", function (Request $req, Response $res) {
     $data = array_intersect_key(
         $req->getParsedBody() ?? [],

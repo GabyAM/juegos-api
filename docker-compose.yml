@@ -36,7 +36,7 @@ services:
         image: composer
         volumes:
             - ./slim:/app
-        command: bash -c "([ ! -f composer.json ] && composer require slim/slim:'4.*' slim/psr7) || ([ ! -d vendor ] && composer install -no) || exit 0"
+        command: bash -c "([ ! -f composer.json ] && composer require slim/slim:'4.*' slim/psr7 firebase/php-jwt) || ([ ! -d vendor ] && composer install -no) || exit 0"
     slim:
         build: ./docker/slim
         image: ${COMPOSE_PROJECT_NAME}_slim

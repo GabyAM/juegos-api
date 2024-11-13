@@ -1,8 +1,11 @@
 <?php
 
+use Firebase\JWT\ExpiredException;
+use Firebase\JWT\Key;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
+use Firebase\JWT\JWT;
 
 require __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/utilities/sql_strings.php';
@@ -37,6 +40,10 @@ $customErrorHandler = function (Request $request, Throwable $exception) use ($ap
 
 $errorMiddleware = $app->addErrorMiddleware(true, true, true);
 $errorMiddleware->setDefaultErrorHandler($customErrorHandler);
+
+$app->options('/{routes:.+}', function ($request, $response, $args) {
+    return $response;
+});
 $app->add(function ($request, $handler) {
     $response = $handler->handle($request);
 
@@ -80,30 +87,36 @@ function findOne($table, $conditions, $select = "*")
     return $value;
 }
 
-$authenticate = function ($admin = false) {
-    return function (Request $req, $handler) use ($admin) {
+$authenticate = function ($admin = false, $optional = false) {
+    return function (Request $req, $handler) use ($admin, $optional) {
         $header = $req->getHeader("Authorization");
         if (empty($header)) {
+            if ($optional) {
+                $req = $req->withAttribute("userId", null);
+                return $handler->handle($req);
+            }
             throw new CustomException("Autenticación fallida", 401);
         }
 
-        if (!preg_match("/^Bearer [0-9]+::[0-9A-Fa-f]+$/", $header[0])) {
-            throw new CustomException("El formato del token es incorrecto", 401);
+        $jwt = explode(' ', $header[0])[1] ?? '';
+        $publicKey = file_get_contents('./mykey.pub');
+        try {
+            $decoded = JWT::decode($jwt, new Key($publicKey, "RS256"));
+        } catch (Exception $e) {
+            if ($optional) {
+                $req = $req->withAttribute("userId", null);
+                return $handler->handle($req);
+            }
+            if ($e instanceof ExpiredException) {
+                throw new CustomException("El token expiró", 401);
+            } else {
+                throw new CustomException("El token no es válido", 401);
+            }
         }
 
-        $token = explode(' ', $header[0])[1];
-        $userId = explode("::", $token)[0];
-
-        $user = findOne("usuario", "id =  $userId");
+        $user = (array) $decoded->user;
         if ($admin && !$user["es_admin"]) {
             throw new CustomException("El usuario debe ser admin", 401);
-        }
-
-        if ($token !== $user["token"]) {
-            throw new CustomException("El token no es válido", 401);
-        }
-        if (strtotime($user["vencimiento_token"]) < time()) {
-            throw new CustomException("El token expiró", 401);
         }
 
         $req = $req->withAttribute("userId", $user["id"]);

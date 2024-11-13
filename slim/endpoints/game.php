@@ -30,8 +30,10 @@ $app->get("/juegos", function (Request $req, Response $res) {
     if (isset($params["clasificacion"])) {
         array_push($conditions, "juego.clasificacion_edad = '" . $params["clasificacion"] . "'");
     }
+
     $sql = "SELECT juego.id, juego.nombre, juego.descripcion, juego.imagen, juego.clasificacion_edad, 
-    (SELECT AVG(estrellas) FROM calificacion WHERE juego_id = juego.id) as promedio_calificaciones, 
+    (SELECT AVG(estrellas) FROM calificacion WHERE juego_id = juego.id) as promedio_calificaciones,
+    (SELECT COUNT(id) FROM calificacion WHERE juego_id = juego.id) as cantidad_calificaciones,  
     GROUP_CONCAT(plataforma.nombre ORDER BY plataforma.nombre ASC SEPARATOR ', ') as plataformas 
     FROM juego LEFT JOIN soporte ON soporte.juego_id = juego.id LEFT JOIN plataforma on soporte.plataforma_id = plataforma.id
     " . (isset($params["plataforma"]) ? "WHERE plataforma.nombre = '" . $params["plataforma"] . "'" : "") . "
@@ -39,13 +41,27 @@ $app->get("/juegos", function (Request $req, Response $res) {
     " . (!empty($conditions) ? "HAVING " . implode(" AND ", $conditions) : "") . "
     LIMIT 5" . (isset($params["pagina"]) ? " OFFSET " . ((intval($params["pagina"]) - 1) * 5) : "");
 
-    $query = $pdo->prepare($sql);
-    $query->execute();
+    $query = $pdo->query($sql);
     $games = $query->fetchAll(PDO::FETCH_ASSOC);
+
+    $sql = "SELECT COUNT(*) as count FROM (
+    SELECT juego.id  
+    FROM juego LEFT JOIN soporte ON soporte.juego_id = juego.id LEFT JOIN plataforma on soporte.plataforma_id = plataforma.id
+    " . (isset($params["plataforma"]) ? "WHERE plataforma.nombre = '" . $params["plataforma"] . "'" : "") . "
+    GROUP BY juego.id, juego.nombre
+    " . (!empty($conditions) ? "HAVING " . implode(" AND ", $conditions) : "") . "
+    ) as list";
+
+    $query = $pdo->query($sql);
+    $count = $query->fetch(PDO::FETCH_ASSOC)["count"];
+    $pages = ceil($count / 5);
 
     $res->getBody()->write(json_encode([
         "status" => 200,
-        "data" => $games
+        "data" => [
+            "pages" => $pages,
+            "results" => $games
+        ]
     ]));
     return $res;
 });
@@ -123,6 +139,7 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
             'clasificacion_edad',
         ])
     );
+
     if (isset($req->getUploadedFiles()["imagen"])) {
         $data["imagen"] = $req->getUploadedFiles()["imagen"]->getStream()->getContents();
     }

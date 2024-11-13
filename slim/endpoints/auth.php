@@ -1,6 +1,7 @@
 <?php
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
+use Firebase\JWT\JWT;
 
 $app->post('/login', function (Request $req, Response $res) {
     $data = array_intersect_key(
@@ -20,28 +21,31 @@ $app->post('/login', function (Request $req, Response $res) {
     $userName = $data["nombre_usuario"];
     $user = findOne("usuario", "nombre_usuario = '$userName'");
     if (!isset($user)) {
-        throw new CustomException("Usuario no encontrado", 404);
+        throw new CustomException("Nombre de usuario incorrecto", 400);
     }
     if ($user["clave"] !== $data["clave"]) {
         throw new CustomException("Contraseña incorrecta", 400);
     }
 
-    $token = $user["id"] . "::" . bin2hex(random_bytes(30));
-    $expiresAt = time() + 3600;
+    $payloadUser = [
+        "id" => $user["id"],
+        "nombre_usuario" => $user["nombre_usuario"],
+        "es_admin" => $user["es_admin"]
+    ];
+    $payload = [
+        "exp" => time() + 3600,
+        "iat" => time(),
+        "user" => $payloadUser
+    ];
+    $privateKey = file_get_contents(__DIR__ . "/../mykey.pem");
 
-    $update = ["token" => $token, "vencimiento_token" => date('Y-m-d H:i:s', $expiresAt)];
-    $updateString = buildUpdateString($update);
-
-    $pdo = createConnection();
-    $id = $user["id"];
-    $sql = 'UPDATE usuario SET ' . $updateString . " WHERE id = $id";
-    $pdo->query($sql);
+    $jwt = JWT::encode($payload, $privateKey, "RS256");
 
     $res->getBody()->write(json_encode(
         [
             "status" => 200,
             "message" => "Login realizado exitosamente",
-            "token" => $token
+            "token" => $jwt
         ]
     ));
     return $res;
