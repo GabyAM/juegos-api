@@ -44,13 +44,15 @@ $errorMiddleware->setDefaultErrorHandler($customErrorHandler);
 $app->options('/{routes:.+}', function ($request, $response, $args) {
     return $response;
 });
+
 $app->add(function ($request, $handler) {
     $response = $handler->handle($request);
 
     return $response
-        ->withHeader('Access-Control-Allow-Origin', '*')
+        ->withHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
         ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
         ->withHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, PUT, PATCH, DELETE')
+        ->withHeader('Access-Control-Allow-Credentials', 'true')
         ->withHeader('Content-Type', 'application/json')
     ;
 });
@@ -87,14 +89,10 @@ function findOne($table, $conditions, $select = "*")
     return $value;
 }
 
-$authenticate = function ($admin = false, $optional = false) {
-    return function (Request $req, $handler) use ($admin, $optional) {
+$authenticate = function ($admin = false) {
+    return function (Request $req, $handler) use ($admin) {
         $header = $req->getHeader("Authorization");
         if (empty($header)) {
-            if ($optional) {
-                $req = $req->withAttribute("userId", null);
-                return $handler->handle($req);
-            }
             throw new CustomException("Autenticación fallida", 401);
         }
 
@@ -103,10 +101,6 @@ $authenticate = function ($admin = false, $optional = false) {
         try {
             $decoded = JWT::decode($jwt, new Key($publicKey, "RS256"));
         } catch (Exception $e) {
-            if ($optional) {
-                $req = $req->withAttribute("userId", null);
-                return $handler->handle($req);
-            }
             if ($e instanceof ExpiredException) {
                 throw new CustomException("El token expiró", 401);
             } else {
@@ -120,15 +114,27 @@ $authenticate = function ($admin = false, $optional = false) {
         }
 
         $req = $req->withAttribute("userId", $user["id"]);
+        $req = $req->withAttribute("userId", 1);
+
         $res = $handler->handle($req);
         return $res;
     };
 };
+
+// ACÁ VAN LOS ENDPOINTS
+
+// $app
+//     ->post("/protected", function (Request $req, Response $res) {
+//         $res->getBody()->write("Congratulations!");
+//         return $res;
+//     })
+//     ->add($authenticate());
 
 require __DIR__ . '/endpoints/auth.php';
 require __DIR__ . '/endpoints/user.php';
 require __DIR__ . '/endpoints/game.php';
 require __DIR__ . '/endpoints/score.php';
 require __DIR__ . '/endpoints/support.php';
+require __DIR__ . '/endpoints/platform.php';
 
 $app->run();

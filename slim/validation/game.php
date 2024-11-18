@@ -16,8 +16,8 @@ function validateGameParams($params)
     }
 
     if (isset($params["clasificacion"])) {
-        if (!preg_match("/^(ATP|\+13|\+18)$/", $params["plataforma"])) {
-            $errors["plataforma"] = "El parametro de clasificacion debe indicar una clasificacion valida (ATP, +13, +18)";
+        if (!preg_match("/^(ATP|\+13|\+18)$/", $params["clasificacion"])) {
+            $errors["clasificacion"] = "El parametro de clasificacion debe indicar una clasificacion valida (ATP, +13, +18)";
         }
     }
 

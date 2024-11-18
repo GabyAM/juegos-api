@@ -28,17 +28,28 @@ $app->get("/juegos", function (Request $req, Response $res) {
         array_push($conditions, "juego.nombre LIKE '%" . $params["texto"] . "%'");
     }
     if (isset($params["clasificacion"])) {
-        array_push($conditions, "juego.clasificacion_edad = '" . $params["clasificacion"] . "'");
+        if ($params["clasificacion"] === 'ATP') {
+            $condition = "juego.clasificacion_edad = 'ATP'";
+        } else if ($params["clasificacion"] === '+13') {
+            $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13'";
+        } else if ($params["clasificacion"] === '+18') {
+            $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13' OR juego.clasificacion_edad = '+18'";
+        }
+        array_push($conditions, $condition);
     }
+    if (isset($params["plataforma"])) {
+        array_push($conditions, "plataforma.nombre = '" . $params["plataforma"] . "'");
+    }
+
+    $whereClause = !empty($conditions) ? "WHERE " . implode(" AND ", $conditions) : "";
 
     $sql = "SELECT juego.id, juego.nombre, juego.descripcion, juego.imagen, juego.clasificacion_edad, 
     (SELECT AVG(estrellas) FROM calificacion WHERE juego_id = juego.id) as promedio_calificaciones,
     (SELECT COUNT(id) FROM calificacion WHERE juego_id = juego.id) as cantidad_calificaciones,  
     GROUP_CONCAT(plataforma.nombre ORDER BY plataforma.nombre ASC SEPARATOR ', ') as plataformas 
     FROM juego LEFT JOIN soporte ON soporte.juego_id = juego.id LEFT JOIN plataforma on soporte.plataforma_id = plataforma.id
-    " . (isset($params["plataforma"]) ? "WHERE plataforma.nombre = '" . $params["plataforma"] . "'" : "") . "
+    {$whereClause}
     GROUP BY juego.id
-    " . (!empty($conditions) ? "HAVING " . implode(" AND ", $conditions) : "") . "
     LIMIT 5" . (isset($params["pagina"]) ? " OFFSET " . ((intval($params["pagina"]) - 1) * 5) : "");
 
     $query = $pdo->query($sql);
@@ -47,9 +58,8 @@ $app->get("/juegos", function (Request $req, Response $res) {
     $sql = "SELECT COUNT(*) as count FROM (
     SELECT juego.id  
     FROM juego LEFT JOIN soporte ON soporte.juego_id = juego.id LEFT JOIN plataforma on soporte.plataforma_id = plataforma.id
-    " . (isset($params["plataforma"]) ? "WHERE plataforma.nombre = '" . $params["plataforma"] . "'" : "") . "
+    {$whereClause}
     GROUP BY juego.id, juego.nombre
-    " . (!empty($conditions) ? "HAVING " . implode(" AND ", $conditions) : "") . "
     ) as list";
 
     $query = $pdo->query($sql);
@@ -69,16 +79,28 @@ $app->get("/juegos", function (Request $req, Response $res) {
 $app->get("/juegos/{id:[0-9]+}", function (Request $req, Response $res, array $args) {
     $id = $args["id"];
 
-    $game = findOne("juego", "id = " . $id);
+    $pdo = createConnection();
+    $sql = "SELECT juego.id, juego.nombre, juego.descripcion, juego.clasificacion_edad, juego.imagen, 
+    GROUP_CONCAT(plataforma.nombre ORDER BY plataforma.nombre ASC SEPARATOR ', ') as plataformas 
+    FROM juego
+    LEFT JOIN soporte ON soporte.juego_id = juego.id
+    LEFT JOIN plataforma ON plataforma.id = soporte.plataforma_id
+    GROUP BY juego.id
+    HAVING juego.id = $id";
+
+    $query = $pdo->query($sql);
+    $game = $query->fetch(PDO::FETCH_ASSOC);
+
     if (!isset($game)) {
         throw new CustomException("Juego no encontrado", 404);
     }
 
     $pdo = createConnection();
-    $sql = "SELECT * FROM calificacion WHERE juego_id = :id";
-    $query = $pdo->prepare($sql);
-    $query->bindValue(":id", $id);
-    $query->execute();
+    $sql = "SELECT calificacion.id, calificacion.estrellas, calificacion.usuario_id, usuario.nombre_usuario FROM calificacion 
+    JOIN usuario ON usuario.id = calificacion.usuario_id 
+    WHERE juego_id = $id
+    ORDER BY usuario.nombre_usuario ASC";
+    $query = $pdo->query($sql);
     $scores = $query->fetchAll(PDO::FETCH_ASSOC);
 
     $game["calificaciones"] = $scores;
@@ -96,6 +118,7 @@ $app->post("/juego", function (Request $req, Response $res) {
             'nombre',
             'descripcion',
             'clasificacion_edad',
+            "imagen"
         ])
     );
 
@@ -109,13 +132,27 @@ $app->post("/juego", function (Request $req, Response $res) {
         return $res->withStatus(400);
     }
 
-    $newName = $data["nombre"];
-    $game = findOne("juego", "nombre = '$newName'");
-    if (isset($game)) {
+    $pdo = createConnection();
+    $sql = "SELECT * FROM juego WHERE nombre = :nombre";
+    $query = $pdo->prepare($sql);
+    $query->bindParam(":nombre", $data["nombre"]);
+    $query->execute();
+
+    if ($query->rowCount() > 0) {
         throw new CustomException('Ya existe un juego con ese nombre', 409);
     }
 
-    $data["imagen"] = base64_encode($data["imagen"]->getStream()->getContents());
+    try {
+        $imageStream = $data["imagen"]->getStream();
+        $imageStream->rewind();
+        $imageData = '';
+        while (!$imageStream->eof()) {
+            $imageData .= $imageStream->read(8192);
+        }
+        $data["imagen"] = base64_encode($imageData);
+    } catch (Exception $e) {
+        throw new CustomException('Error al procesar la imagen', 500);
+    }
 
     $pdo = createConnection();
     $insertString = buildInsertString($data);
@@ -166,7 +203,17 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
     }
 
     if (isset($data["imagen"])) {
-        $data["imagen"] = base64_encode($data["imagen"]);
+        try {
+            $imageStream = $data["imagen"]->getStream();
+            $imageStream->rewind();
+            $imageData = '';
+            while (!$imageStream->eof()) {
+                $imageData .= $imageStream->read(8192);
+            }
+            $data["imagen"] = base64_encode($imageData);
+        } catch (Exception $e) {
+            throw new CustomException('Error al procesar la imagen', 500);
+        }
     }
 
     $pdo = createConnection();

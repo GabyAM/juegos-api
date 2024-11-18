@@ -3,8 +3,8 @@
 use Slim\Psr7\Request;
 use Slim\Psr7\Response;
 
-$app->get('/calificacion/{juegoid:[0-9]+}', function (Request $req, Response $res, array $args) {
-    $gameId = $args["juegoid"];
+$app->get('/juego/{id:[0-9]+}/calificacion', function (Request $req, Response $res, array $args) {
+    $gameId = $args["id"];
     $userId = $req->getAttribute("userId");
 
     $score = findOne("calificacion", ["juego_id = $gameId", "usuario_id = $userId"]);
@@ -49,11 +49,13 @@ $app->post("/calificacion", function (Request $req, Response $res) {
     $pdo = createConnection();
     $insertString = buildInsertString([...$data, "usuario_id" => $userId]);
     $sql = "INSERT INTO calificacion " . $insertString;
-    $pdo->query($sql);
+    $query = $pdo->query($sql);
+    $score = $query->fetch(PDO::FETCH_ASSOC);
 
     $res->getBody()->write(json_encode([
         "status" => 200,
-        "message" => "Calificacion creada"
+        "message" => "Calificacion creada",
+        "data" => $score
     ]));
     return $res;
 })->add($authenticate());
