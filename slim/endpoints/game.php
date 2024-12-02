@@ -16,10 +16,7 @@ $app->get("/juegos", function (Request $req, Response $res) {
 
     $errors = validateGameParams($params);
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $pdo = createConnection();
@@ -28,14 +25,14 @@ $app->get("/juegos", function (Request $req, Response $res) {
         array_push($conditions, "juego.nombre LIKE '%" . $params["texto"] . "%'");
     }
     if (isset($params["clasificacion"])) {
-        if ($params["clasificacion"] === 'ATP') {
-            $condition = "juego.clasificacion_edad = 'ATP'";
-        } else if ($params["clasificacion"] === '+13') {
-            $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13'";
-        } else if ($params["clasificacion"] === '+18') {
-            $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13' OR juego.clasificacion_edad = '+18'";
-        }
-        array_push($conditions, $condition);
+        // if ($params["clasificacion"] === 'ATP') {
+        //     $condition = "juego.clasificacion_edad = 'ATP'";
+        // } else if ($params["clasificacion"] === '+13') {
+        //     $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13'";
+        // } else if ($params["clasificacion"] === '+18') {
+        //     $condition = "juego.clasificacion_edad = 'ATP' OR juego.clasificacion_edad = '+13' OR juego.clasificacion_edad = '+18'";
+        // }
+        array_push($conditions, "juego.clasificacion_edad = '" . $params["clasificacion"] . "'");
     }
     if (isset($params["plataforma"])) {
         array_push($conditions, "plataforma.nombre = '" . $params["plataforma"] . "'");
@@ -118,7 +115,8 @@ $app->post("/juego", function (Request $req, Response $res) {
             'nombre',
             'descripcion',
             'clasificacion_edad',
-            "imagen"
+            "imagen",
+            "plataformas"
         ])
     );
 
@@ -126,10 +124,7 @@ $app->post("/juego", function (Request $req, Response $res) {
 
     $errors = validateGame($data);
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $pdo = createConnection();
@@ -139,7 +134,7 @@ $app->post("/juego", function (Request $req, Response $res) {
     $query->execute();
 
     if ($query->rowCount() > 0) {
-        throw new CustomException('Ya existe un juego con ese nombre', 409);
+        throw new ValidationException(["nombre" => "Ya existe un juego con ese nombre"], 409);
     }
 
     try {
@@ -155,9 +150,28 @@ $app->post("/juego", function (Request $req, Response $res) {
     }
 
     $pdo = createConnection();
-    $insertString = buildInsertString($data);
-    $sql = "INSERT INTO juego " . $insertString;
-    $pdo->query($sql);
+    $insertString = buildInsertString(array_diff_key($data, ["plataformas" => true]));
+
+    $pdo->beginTransaction();
+    try {
+        $sql = "INSERT INTO juego " . $insertString;
+        $query = $pdo->query($sql);
+
+        $gameId = $pdo->lastInsertId();
+
+        $platforms = explode(",", $data["plataformas"]);
+        $updates = [];
+        foreach ($platforms as $platform) {
+            array_push($updates, "($gameId, (SELECT id FROM plataforma WHERE nombre = '$platform'))");
+        }
+        $sql = "INSERT INTO soporte (juego_id, plataforma_id) VALUES " . implode(", ", $updates) . "";
+        $pdo->query($sql);
+
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 
     $res->getBody()->write(json_encode([
         "status" => 200,
@@ -174,6 +188,7 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
             'nombre',
             'descripcion',
             'clasificacion_edad',
+            "plataformas"
         ])
     );
 
@@ -183,10 +198,7 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
 
     $errors = validateGame($data, true);
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $game = findOne("juego", "id = $id");
@@ -198,7 +210,7 @@ $app->put("/juego/{id:[0-9]+}", function (Request $req, Response $res, array $ar
         $newName = $data["nombre"];
         $game = findOne("juego", ["nombre = '$newName'", "id != $id"]);
         if (isset($game)) {
-            throw new CustomException('Ya existe un juego con ese nombre', 409);
+            throw new ValidationException(["nombre" => 'Ya existe un juego con ese nombre'], 409);
         }
     }
 

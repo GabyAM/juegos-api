@@ -18,20 +18,43 @@ class CustomException extends Exception
 {
 }
 
+class ValidationException extends Exception
+{
+    private $errors;
+
+    public function __construct($errors = [], $code = 0, Throwable $previous = null)
+    {
+        parent::__construct("Validacion fallida", $code, $previous);
+        $this->errors = $errors;
+    }
+
+    public function getErrors()
+    {
+        return $this->errors;
+    }
+}
+
 $app = AppFactory::create();
 
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 $customErrorHandler = function (Request $request, Throwable $exception) use ($app) {
+    var_dump($exception);
+    die;
     $exceptionCode = $exception->getCode();
-    if ($exception instanceof CustomException || $exception instanceof HttpException) {
+
+    if ($exception instanceof CustomException || $exception instanceof HttpException || $exception instanceof ValidationException) {
         $responseCode = $exceptionCode;
     } else {
         $responseCode = 500;
     }
 
-    $errorMessage = $responseCode === 500 ? "Error de servidor interno" : $exception->getMessage();
-    $payload = ['status' => $responseCode, 'error' => $errorMessage];
+    if ($exception instanceof ValidationException) {
+        $payload = ["status" => $responseCode, "errors" => $exception->getErrors()];
+    } else {
+        $errorMessage = $responseCode === 500 ? "Error de servidor interno" : $exception->getMessage();
+        $payload = ['status' => $responseCode, 'error' => $errorMessage];
+    }
     $response = $app->getResponseFactory()->createResponse();
     $response->getBody()->write(json_encode($payload, JSON_UNESCAPED_UNICODE));
 
@@ -114,7 +137,6 @@ $authenticate = function ($admin = false) {
         }
 
         $req = $req->withAttribute("userId", $user["id"]);
-        $req = $req->withAttribute("userId", 1);
 
         $res = $handler->handle($req);
         return $res;

@@ -76,5 +76,6 @@ function validateGame($data, $optional = false)
             $errors["clasificacion_edad"] = "Este campo debe indicar una clasificacion valida (ATP, +13, +18)";
         }
     }
+
     return $errors;
 }

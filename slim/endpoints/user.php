@@ -28,16 +28,13 @@ $app->post('/usuario', function (Request $req, Response $res) {
     $errors = validateUser($data);
 
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $userName = $data["nombre_usuario"];
     $user = findOne("usuario", "nombre_usuario = '$userName'");
     if (isset($user)) {
-        throw new CustomException("El nombre de usuario está en uso", 409);
+        throw new ValidationException(["nombre_usuario" => "El nombre de usuario está en uso"], 409);
     }
 
     $insertString = buildInsertString($data);
@@ -67,17 +64,14 @@ $app->put("/usuario/{id:[0-9]+}", function (Request $req, Response $res, array $
     $errors = validateUser($data, true);
 
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     if (isset($data["nombre_usuario"])) {
         $userName = $data["nombre_usuario"];
         $user = findOne("usuario", "nombre_usuario = '$userName'");
         if (isset($user)) {
-            throw new CustomException("El nombre de usuario está en uso", 409);
+            throw new ValidationException(["nombre_usuario" => "El nombre de usuario está en uso"], 409);
         }
     }
 

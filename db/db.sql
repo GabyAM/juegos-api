@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `seminariophp`.`usuario` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `nombre_usuario` VARCHAR(255) NOT NULL,
   `clave` VARCHAR(16) NOT NULL,
-  `token` VARCHAR(128) NULL,
+  `token` TEXT NULL,
   `vencimiento_token` DATETIME NULL,
   `es_admin` TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`))

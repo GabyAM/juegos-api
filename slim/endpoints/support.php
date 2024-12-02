@@ -10,10 +10,7 @@ $app->post("/soporte", function (Request $req, Response $res) {
 
     $errors = validateSupport($data);
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $gameId = $data["juego_id"];

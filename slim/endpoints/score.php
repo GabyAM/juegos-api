@@ -28,10 +28,7 @@ $app->post("/calificacion", function (Request $req, Response $res) {
 
     $errors = validateScore($data);
     if (!empty($errors)) {
-        $res
-            ->getBody()
-            ->write(json_encode(['status' => 400, 'errors' => $errors]));
-        return $res->withStatus(400);
+        throw new ValidationException($errors, 400);
     }
 
     $gameId = $data["juego_id"];
@@ -50,7 +47,8 @@ $app->post("/calificacion", function (Request $req, Response $res) {
     $insertString = buildInsertString([...$data, "usuario_id" => $userId]);
     $sql = "INSERT INTO calificacion " . $insertString;
     $query = $pdo->query($sql);
-    $score = $query->fetch(PDO::FETCH_ASSOC);
+
+    $score = findOne("calificacion", ["usuario_id = $userId", "juego_id = $gameId"]);
 
     $res->getBody()->write(json_encode([
         "status" => 200,
