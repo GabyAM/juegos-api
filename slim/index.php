@@ -39,8 +39,8 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 $customErrorHandler = function (Request $request, Throwable $exception) use ($app) {
-    var_dump($exception);
-    die;
+    // var_dump($exception);
+    // die;
     $exceptionCode = $exception->getCode();
 
     if ($exception instanceof CustomException || $exception instanceof HttpException || $exception instanceof ValidationException) {
